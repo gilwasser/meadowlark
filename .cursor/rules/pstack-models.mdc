@@ -17,8 +17,8 @@ why investigators: grok-4.7-medium
 why synthesizer: auto
 reflect tooling: grok-4.7-medium
 reflect judgment, divergent, synthesizer: auto
-arena runners: grok-4.7-medium
-arena cross-judge pool: grok-4.7-medium
+arena runners: grok-4.7-medium, auto
+arena cross-judge pool: grok-4.7-medium, auto
 swarm workers: auto
-architect runners: grok-4.7-medium
-interrogate reviewers: grok-4.7-medium
+architect runners: grok-4.7-medium, auto
+interrogate reviewers: grok-4.7-medium, auto
