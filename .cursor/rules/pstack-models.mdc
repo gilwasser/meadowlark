@@ -9,16 +9,16 @@ feature, refactoring: grok-4.7-medium
 bug-fix: grok-4.7-medium
 perf-issue: grok-4.7-medium
 hillclimb: grok-4.7-medium
-judgment and prose: auto
+judgment and prose: claude-sonnet-5-5-medium
 hardest tasks: grok-4.7-medium
 how explorer: grok-4.7-medium
-how explainer: auto
+how explainer: claude-sonnet-5-5-medium
 why investigators: grok-4.7-medium
-why synthesizer: auto
+why synthesizer: claude-sonnet-5-5-medium
 reflect tooling: grok-4.7-medium
-reflect judgment, divergent, synthesizer: auto
-arena runners: grok-4.7-medium, auto
-arena cross-judge pool: grok-4.7-medium, auto
-swarm workers: auto
-architect runners: grok-4.7-medium, auto
-interrogate reviewers: grok-4.7-medium, auto
+reflect judgment, divergent, synthesizer: claude-sonnet-5-5-medium
+arena runners: grok-4.7-medium, claude-sonnet-5-5-medium
+arena cross-judge pool: claude-sonnet-5-5-medium, grok-4.7-medium
+swarm workers: grok-4.7-medium
+architect runners: grok-4.7-medium, claude-sonnet-5-5-medium
+interrogate reviewers: grok-4.7-medium, claude-sonnet-5-5-medium
