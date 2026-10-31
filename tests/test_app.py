@@ -249,16 +249,18 @@ def test_unhandled_error_keeps_error_document(
     client = TestClient(application, raise_server_exceptions=False)
     response = client.get("/boom", headers={"X-Request-ID": "boom-1"})
     assert response.status_code == 500
-    assert response.headers.get("x-request-id") is None
-    assert response.json() == {
+    body = response.json()
+    assert body == {
         "error": {
             "code": "internal_server_error",
             "message": "Internal Server Error",
             "request_id": "boom-1",
         }
     }
+    assert response.headers["x-request-id"] == body["error"]["request_id"]
     assert "secret" not in response.text
-    assert "request_id=boom-1" not in " ".join(caplog.messages)
+    access = [message for message in caplog.messages if message.startswith("method=")]
+    assert access == ["method=GET path=/boom status=500 request_id=boom-1"]
 
 
 def test_settings_from_env(
