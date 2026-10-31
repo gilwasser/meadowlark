@@ -2,13 +2,28 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from meadowlark import Settings, create_app
+
+
+class NameBody(BaseModel):
+    name: str
 
 
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(create_app(Settings()))
+
+
+def _client_with_name_route() -> TestClient:
+    application = create_app(Settings())
+
+    @application.post("/checked")
+    def checked(body: NameBody) -> NameBody:
+        return body
+
+    return TestClient(application)
 
 
 def test_health(client: TestClient) -> None:
@@ -57,9 +72,9 @@ def test_request_log(client: TestClient, caplog: pytest.LogCaptureFixture) -> No
     assert "method=GET path=/health status=200 request_id=log-1" in caplog.messages
 
 
-def test_invalid_body_uses_error_document(client: TestClient) -> None:
-    response = client.post(
-        "/echo",
+def test_invalid_body_uses_error_document() -> None:
+    response = _client_with_name_route().post(
+        "/checked",
         json={},
         headers={"X-Request-ID": "bad-1"},
     )
@@ -81,9 +96,9 @@ def test_invalid_body_uses_error_document(client: TestClient) -> None:
     }
 
 
-def test_invalid_body_field_type(client: TestClient) -> None:
-    response = client.post(
-        "/echo",
+def test_invalid_body_field_type() -> None:
+    response = _client_with_name_route().post(
+        "/checked",
         json={"name": 1},
         headers={"X-Request-ID": "bad-2"},
     )
@@ -101,27 +116,32 @@ def test_invalid_body_field_type(client: TestClient) -> None:
     ]
 
 
-def test_echo_accepts_name(client: TestClient) -> None:
+def test_default_router_has_no_echo(client: TestClient) -> None:
     response = client.post(
         "/echo",
         json={"name": "ada"},
         headers={"X-Request-ID": "echo-1"},
     )
-    assert response.status_code == 200
-    assert response.json() == {"name": "ada"}
+    assert response.status_code == 404
     assert response.headers["x-request-id"] == "echo-1"
+    assert response.json()["error"]["code"] == "not_found"
+    assert response.json()["error"]["request_id"] == "echo-1"
 
 
-def test_unhandled_error_keeps_error_document() -> None:
+def test_unhandled_error_keeps_error_document(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     application = create_app(Settings())
 
     @application.get("/boom")
     def boom() -> None:
         raise RuntimeError("secret")
 
+    caplog.set_level(logging.INFO, logger="meadowlark")
     client = TestClient(application, raise_server_exceptions=False)
     response = client.get("/boom", headers={"X-Request-ID": "boom-1"})
     assert response.status_code == 500
+    assert response.headers.get("x-request-id") is None
     assert response.json() == {
         "error": {
             "code": "internal_server_error",
@@ -130,11 +150,44 @@ def test_unhandled_error_keeps_error_document() -> None:
         }
     }
     assert "secret" not in response.text
+    assert "request_id=boom-1" not in " ".join(caplog.messages)
 
 
-def test_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_settings_from_env(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     monkeypatch.setenv("MEADOWLARK_APP_NAME", "copied-app")
     monkeypatch.setenv("MEADOWLARK_LOG_LEVEL", "warning")
+    shared = logging.getLogger("meadowlark")
+    level_before = shared.level
+    handlers_before = list(shared.handlers)
     application = create_app()
     assert application.title == "copied-app"
-    assert logging.getLogger("meadowlark").level == logging.WARNING
+    assert shared.level == level_before
+    assert list(shared.handlers) == handlers_before
+    caplog.set_level(logging.INFO)
+    response = TestClient(application).get("/health", headers={"X-Request-ID": "env-1"})
+    assert response.status_code == 200
+    assert "request_id=env-1" not in " ".join(caplog.messages)
+
+
+def test_second_app_keeps_its_own_log_level(caplog: pytest.LogCaptureFixture) -> None:
+    shared = logging.getLogger("meadowlark")
+    level_before = shared.level
+    handlers_before = list(shared.handlers)
+    verbose = create_app(Settings(log_level="INFO"))
+    quiet = create_app(Settings(log_level="ERROR"))
+    assert shared.level == level_before
+    assert list(shared.handlers) == handlers_before
+    caplog.set_level(logging.INFO)
+    verbose_response = TestClient(verbose).get(
+        "/health", headers={"X-Request-ID": "keep-1"}
+    )
+    quiet_response = TestClient(quiet).get(
+        "/health", headers={"X-Request-ID": "quiet-1"}
+    )
+    assert verbose_response.status_code == 200
+    assert quiet_response.status_code == 200
+    messages = " ".join(caplog.messages)
+    assert "method=GET path=/health status=200 request_id=keep-1" in messages
+    assert "request_id=quiet-1" not in messages

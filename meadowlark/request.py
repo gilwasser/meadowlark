@@ -1,0 +1,50 @@
+import logging
+import re
+import uuid
+
+from fastapi import FastAPI, Request
+
+_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+def _resolve_request_id(header_value: str | None) -> str:
+    if header_value is not None and _REQUEST_ID.fullmatch(header_value.strip()):
+        return header_value.strip()
+    return uuid.uuid4().hex
+
+
+def request_id_for(request: Request) -> str:
+    request_id = getattr(request.state, "request_id", None)
+    if isinstance(request_id, str) and request_id:
+        return request_id
+    return _resolve_request_id(None)
+
+
+def _request_logger(level: str) -> logging.Logger:
+    request_logger = logging.Logger("meadowlark")
+    request_logger.setLevel(level)
+    request_logger.parent = logging.getLogger()
+    request_logger.propagate = True
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    request_logger.addHandler(handler)
+    return request_logger
+
+
+def install_request_middleware(application: FastAPI, log_level: str) -> None:
+    request_logger = _request_logger(log_level)
+
+    @application.middleware("http")
+    async def add_request_id(request: Request, call_next):
+        request_id = _resolve_request_id(request.headers.get("x-request-id"))
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        request_logger.info(
+            "method=%s path=%s status=%s request_id=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            request_id,
+        )
+        return response
