@@ -16,7 +16,18 @@ dependencies = [
 dev = [
     "pytest",
     "httpx",
+    "pytest-cov",
 ]
 
 [tool.setuptools.packages.find]
 include = ["meadowlark*"]
+
+[tool.pytest.ini_options]
+addopts = "--cov"
+
+[tool.coverage.run]
+source = ["meadowlark"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
