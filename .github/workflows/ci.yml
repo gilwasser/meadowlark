@@ -13,3 +13,8 @@ jobs:
       - run: python -m ruff format --check
       - run: python -m mypy
       - run: python -m pytest
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag meadowlark:ci .
