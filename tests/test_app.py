@@ -57,6 +57,81 @@ def test_request_log(client: TestClient, caplog: pytest.LogCaptureFixture) -> No
     assert "method=GET path=/health status=200 request_id=log-1" in caplog.messages
 
 
+def test_invalid_body_uses_error_document(client: TestClient) -> None:
+    response = client.post(
+        "/echo",
+        json={},
+        headers={"X-Request-ID": "bad-1"},
+    )
+    assert response.status_code == 422
+    assert response.headers["x-request-id"] == "bad-1"
+    assert response.json() == {
+        "error": {
+            "code": "unprocessable_entity",
+            "message": "Unprocessable Entity",
+            "request_id": "bad-1",
+            "fields": [
+                {
+                    "loc": ["body", "name"],
+                    "message": "Field required",
+                    "type": "missing",
+                }
+            ],
+        }
+    }
+
+
+def test_invalid_body_field_type(client: TestClient) -> None:
+    response = client.post(
+        "/echo",
+        json={"name": 1},
+        headers={"X-Request-ID": "bad-2"},
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert set(body) == {"error"}
+    assert body["error"]["code"] == "unprocessable_entity"
+    assert body["error"]["request_id"] == "bad-2"
+    assert body["error"]["fields"] == [
+        {
+            "loc": ["body", "name"],
+            "message": "Input should be a valid string",
+            "type": "string_type",
+        }
+    ]
+
+
+def test_echo_accepts_name(client: TestClient) -> None:
+    response = client.post(
+        "/echo",
+        json={"name": "ada"},
+        headers={"X-Request-ID": "echo-1"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"name": "ada"}
+    assert response.headers["x-request-id"] == "echo-1"
+
+
+def test_unhandled_error_keeps_error_document() -> None:
+    application = create_app(Settings())
+
+    @application.get("/boom")
+    def boom() -> None:
+        raise RuntimeError("secret")
+
+    client = TestClient(application, raise_server_exceptions=False)
+    response = client.get("/boom", headers={"X-Request-ID": "boom-1"})
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "internal_server_error",
+            "message": "Internal Server Error",
+            "request_id": "boom-1",
+        }
+    }
+    assert "secret" not in response.text
+
+
 def test_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MEADOWLARK_APP_NAME", "copied-app")
     monkeypatch.setenv("MEADOWLARK_LOG_LEVEL", "warning")
