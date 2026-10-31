@@ -4,7 +4,7 @@ Meadowlark is a small FastAPI app. Use this file to run it and to add to it in t
 
 ## Stack
 
-The project needs Python 3.12 or newer. CI runs Python 3.12. Runtime dependencies are `fastapi`, `uvicorn`, and `pydantic-settings`. The `dev` extra adds `pytest` and `httpx`.
+The project needs Python 3.12 or newer. CI runs Python 3.12. Runtime dependencies are `fastapi`, `uvicorn`, and `pydantic-settings`. The `dev` extra adds `pytest`, `httpx`, `pytest-cov`, `ruff`, and `mypy`.
 
 ## Run
 
@@ -26,7 +26,7 @@ A missing path returns status 404 and the error document below.
 
 ## Test
 
-Run `pytest`. CI installs with `pip install -e ".[dev]"` and then runs `python -m pytest`. Tests live in `tests/test_app.py` and use `TestClient`.
+Run `pytest`. Tests live in `tests/test_app.py` and use `TestClient`. CI runs the commands in Lint.
 
 `tests/test_openapi.py` compares the OpenAPI document for the default app with `tests/openapi.json` and fails on any difference. To regenerate `tests/openapi.json`, run this command from the repository root.
 
@@ -36,7 +36,23 @@ python tests/test_openapi.py
 
 ## Lint
 
-Ruff and mypy are coming. Neither is in `pyproject.toml` or in CI. Do not run them as commands that work today.
+CI installs with `pip install -e ".[dev]"`, then runs these commands in order.
+
+1. `python -m ruff check`
+2. `python -m ruff format --check`
+3. `python -m mypy`
+4. `python -m pytest`
+
+`pytest` adds `--cov` from `pyproject.toml` and fails when coverage of `meadowlark` is under 95.
+
+`.pre-commit-config.yaml` runs the same ruff and mypy commands, plus the OpenAPI snapshot test. Each hook calls `.venv/bin/python` from the virtualenv in the README Install section. The snapshot hook is `.venv/bin/python -m pytest -o addopts= tests/test_openapi.py`. `addopts` in `pyproject.toml` is `--cov`. That option would treat the test path as a coverage path and then collect the whole suite. Clearing `addopts` keeps the hook on the snapshot tests. The coverage gate stays on the full `pytest` run. Install the git hook once per clone.
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+`pre-commit run --all-files` runs every hook. `ruff format` rewrites files when `ruff format --check` fails.
 
 ## Extend the app
 
