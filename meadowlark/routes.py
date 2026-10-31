@@ -21,7 +21,7 @@ class ReadyResponse(BaseModel):
     status: Literal["ready"]
 
 
-@router.get("/")
+@router.get("/v1")
 def read_root() -> HelloResponse:
     return HelloResponse(message="hello")
 
