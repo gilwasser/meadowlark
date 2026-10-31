@@ -14,7 +14,7 @@ pip install -e ".[dev]"
 uvicorn meadowlark:create_app --factory --port 8000
 ```
 
-`GET /` returns `{"message":"hello"}`. `GET /health` returns `{"status":"ok"}`. A missing path returns status 404 and `{"error":{"code":"not_found","message":"Not Found","request_id":"<id>"}}`.
+`GET /` returns `{"message":"hello"}`. `GET /health` returns `{"status":"ok"}`. `GET /ready` returns `{"status":"ready"}` when every registered readiness check passes. Each app has its own readiness checks. A new app has none, so `GET /ready` returns ready. If a check fails, `GET /ready` returns status 503 and `{"error":{"code":"service_unavailable","message":"Service Unavailable","request_id":"<id>"}}`. A missing path returns status 404 and `{"error":{"code":"not_found","message":"Not Found","request_id":"<id>"}}`.
 
 An invalid request body returns status 422 and `{"error":{"code":"unprocessable_entity","message":"Unprocessable Entity","request_id":"<id>","fields":[...]}}`. Each item in `fields` has `loc`, `message`, and `type`. The shipped routes do not include `POST /echo`.
 

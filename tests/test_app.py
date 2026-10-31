@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from meadowlark import Settings, create_app
+from meadowlark.ready import register_readiness_check
 
 
 class NameBody(BaseModel):
@@ -30,6 +31,61 @@ def test_health(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_ready_with_no_checks(client: TestClient) -> None:
+    response = client.get("/ready", headers={"X-Request-ID": "ready-1"})
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+    assert response.headers["x-request-id"] == "ready-1"
+
+
+def test_ready_when_checks_pass() -> None:
+    application = create_app(Settings())
+    register_readiness_check(application, lambda: True)
+    response = TestClient(application).get("/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
+def test_ready_returns_service_unavailable_when_a_check_fails() -> None:
+    application = create_app(Settings())
+    register_readiness_check(application, lambda: True)
+    register_readiness_check(application, lambda: False)
+    response = TestClient(application).get(
+        "/ready", headers={"X-Request-ID": "ready-2"}
+    )
+    assert response.status_code == 503
+    assert response.headers["x-request-id"] == "ready-2"
+    assert response.json() == {
+        "error": {
+            "code": "service_unavailable",
+            "message": "Service Unavailable",
+            "request_id": "ready-2",
+        }
+    }
+
+
+def test_health_stays_ok_when_a_readiness_check_fails() -> None:
+    application = create_app(Settings())
+    register_readiness_check(application, lambda: False)
+    client = TestClient(application)
+    health = client.get("/health")
+    ready = client.get("/ready")
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok"}
+    assert ready.status_code == 503
+
+
+def test_readiness_checks_stay_on_their_app() -> None:
+    failing = create_app(Settings())
+    passing = create_app(Settings())
+    register_readiness_check(failing, lambda: False)
+    failing_response = TestClient(failing).get("/ready")
+    passing_response = TestClient(passing).get("/ready")
+    assert failing_response.status_code == 503
+    assert passing_response.status_code == 200
+    assert passing_response.json() == {"status": "ready"}
 
 
 def test_request_id_on_success(client: TestClient) -> None:

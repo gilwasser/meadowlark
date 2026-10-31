@@ -5,6 +5,7 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from meadowlark.errors import install_error_handlers
+from meadowlark.ready import ReadinessCheck
 from meadowlark.request import install_request_middleware
 from meadowlark.routes import router
 
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = Settings()
     application = FastAPI(title=settings.app_name)
     application.state.settings = settings
+    application.state.readiness_checks: list[ReadinessCheck] = []
     install_request_middleware(application, settings.log_level)
     install_error_handlers(application)
     application.include_router(router)
