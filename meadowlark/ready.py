@@ -6,7 +6,10 @@ ReadinessCheck = Callable[[], bool]
 
 
 def register_readiness_check(application: FastAPI, check: ReadinessCheck) -> None:
-    application.state.readiness_checks.append(check)
+    def install() -> None:
+        application.state.readiness_checks.append(check)
+
+    application.state.startup_hooks.append(install)
 
 
 def checks_pass(checks: Sequence[ReadinessCheck]) -> bool:

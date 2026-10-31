@@ -22,6 +22,10 @@ Send `X-Request-ID` to choose the id. If you omit the header, or the value conta
 
 Each finished request writes one log line. The line names `method`, `path`, `status`, and `request_id`. The default format is `text`, a single key=value line such as `method=GET path=/health status=200 request_id=<id>`. Set `MEADOWLARK_LOG_FORMAT` to `json` to write one JSON object with those four keys. `text` keeps the key=value line. `MEADOWLARK_LOG_LEVEL` sets that app's level. A second app in the same process keeps its own level.
 
+`create_app` takes `on_startup` and `on_shutdown`. Each argument is a sequence of callbacks. A callback is a function or an async function. Startup callbacks run in the order you pass them when the app starts. Shutdown callbacks run in the order you pass them when the app stops. The app copies both sequences when you call `create_app`.
+
+`register_readiness_check` adds a startup callback. That callback records the check when the app starts, after the callbacks in `on_startup`. `GET /ready` uses the recorded checks.
+
 ## Test
 
 ```bash

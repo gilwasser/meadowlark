@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from meadowlark import Settings, create_app
+from meadowlark import Hook, Settings, create_app
 from meadowlark.ready import register_readiness_check
 
 
@@ -50,7 +50,8 @@ def test_ready_with_no_checks(client: TestClient) -> None:
 def test_ready_when_checks_pass() -> None:
     application = create_app(Settings())
     register_readiness_check(application, lambda: True)
-    response = TestClient(application).get("/ready")
+    with TestClient(application) as client:
+        response = client.get("/ready")
     assert response.status_code == 200
     assert response.json() == {"status": "ready"}
 
@@ -59,9 +60,8 @@ def test_ready_returns_service_unavailable_when_a_check_fails() -> None:
     application = create_app(Settings())
     register_readiness_check(application, lambda: True)
     register_readiness_check(application, lambda: False)
-    response = TestClient(application).get(
-        "/ready", headers={"X-Request-ID": "ready-2"}
-    )
+    with TestClient(application) as client:
+        response = client.get("/ready", headers={"X-Request-ID": "ready-2"})
     assert response.status_code == 503
     assert response.headers["x-request-id"] == "ready-2"
     assert response.json() == {
@@ -76,9 +76,9 @@ def test_ready_returns_service_unavailable_when_a_check_fails() -> None:
 def test_health_stays_ok_when_a_readiness_check_fails() -> None:
     application = create_app(Settings())
     register_readiness_check(application, lambda: False)
-    client = TestClient(application)
-    health = client.get("/health")
-    ready = client.get("/ready")
+    with TestClient(application) as client:
+        health = client.get("/health")
+        ready = client.get("/ready")
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
     assert ready.status_code == 503
@@ -88,11 +88,30 @@ def test_readiness_checks_stay_on_their_app() -> None:
     failing = create_app(Settings())
     passing = create_app(Settings())
     register_readiness_check(failing, lambda: False)
-    failing_response = TestClient(failing).get("/ready")
-    passing_response = TestClient(passing).get("/ready")
+    with TestClient(failing) as failing_client:
+        failing_response = failing_client.get("/ready")
+    with TestClient(passing) as passing_client:
+        passing_response = passing_client.get("/ready")
     assert failing_response.status_code == 503
     assert passing_response.status_code == 200
     assert passing_response.json() == {"status": "ready"}
+
+
+def test_readiness_check_is_recorded_when_startup_runs() -> None:
+    seen: list[int] = []
+
+    def observe() -> None:
+        seen.append(len(application.state.readiness_checks))
+
+    application = create_app(Settings(), on_startup=(observe,))
+    register_readiness_check(application, lambda: False)
+    before = TestClient(application).get("/ready")
+    with TestClient(application) as client:
+        during = client.get("/ready")
+    assert before.status_code == 200
+    assert before.json() == {"status": "ready"}
+    assert seen == [0]
+    assert during.status_code == 503
 
 
 def test_request_id_on_success(client: TestClient) -> None:
@@ -299,3 +318,69 @@ def test_second_app_keeps_its_own_log_level(caplog: pytest.LogCaptureFixture) ->
     messages = " ".join(caplog.messages)
     assert "method=GET path=/health status=200 request_id=keep-1" in messages
     assert "request_id=quiet-1" not in messages
+
+
+def test_startup_and_shutdown_hooks_run_in_order() -> None:
+    events: list[str] = []
+
+    def start_sync() -> None:
+        events.append("start-sync")
+
+    async def start_async() -> None:
+        events.append("start-async")
+
+    def stop_sync() -> None:
+        events.append("stop-sync")
+
+    async def stop_async() -> None:
+        events.append("stop-async")
+
+    application = create_app(
+        Settings(),
+        on_startup=(start_sync, start_async),
+        on_shutdown=(stop_sync, stop_async),
+    )
+    with TestClient(application) as client:
+        assert events == ["start-sync", "start-async"]
+        response = client.get("/health")
+        assert response.status_code == 200
+    assert events == ["start-sync", "start-async", "stop-sync", "stop-async"]
+
+
+def test_hooks_stay_on_the_app_that_registered_them() -> None:
+    events: list[str] = []
+
+    def start() -> None:
+        events.append("start")
+
+    def stop() -> None:
+        events.append("stop")
+
+    registered = create_app(
+        Settings(),
+        on_startup=(start,),
+        on_shutdown=(stop,),
+    )
+    with TestClient(registered):
+        with TestClient(create_app(Settings())):
+            assert events == ["start"]
+        assert events == ["start"]
+    assert events == ["start", "stop"]
+
+
+def test_create_app_keeps_the_hook_order_it_copied() -> None:
+    events: list[str] = []
+    startup: list[Hook] = []
+
+    def first() -> None:
+        events.append("first")
+
+    def second() -> None:
+        events.append("second")
+
+    startup.extend((first, second))
+    application = create_app(Settings(), on_startup=startup)
+    startup.clear()
+    startup.append(second)
+    with TestClient(application):
+        assert events == ["first", "second"]
