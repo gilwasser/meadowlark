@@ -263,6 +263,28 @@ def test_unhandled_error_keeps_error_document(
     assert access == ["method=GET path=/boom status=500 request_id=boom-1"]
 
 
+def test_unhandled_error_log_json(caplog: pytest.LogCaptureFixture) -> None:
+    application = create_app(Settings(log_format="json"))
+
+    @application.get("/boom")
+    def boom() -> None:
+        raise RuntimeError("secret")
+
+    caplog.set_level(logging.INFO, logger="meadowlark")
+    client = TestClient(application, raise_server_exceptions=False)
+    response = client.get("/boom", headers={"X-Request-ID": "boom-json-1"})
+    assert response.status_code == 500
+    assert response.headers["x-request-id"] == "boom-json-1"
+    assert response.json()["error"]["request_id"] == "boom-json-1"
+    line = next(message for message in caplog.messages if "boom-json-1" in message)
+    assert json.loads(line) == {
+        "method": "GET",
+        "path": "/boom",
+        "status": 500,
+        "request_id": "boom-json-1",
+    }
+
+
 def test_settings_from_env(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

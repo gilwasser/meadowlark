@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from meadowlark.request import request_id_for
+from meadowlark.request import record_response, request_id_for
 
 
 class FieldError(BaseModel):
@@ -88,8 +88,11 @@ def install_error_handlers(application: FastAPI) -> None:
 
     @application.exception_handler(Exception)
     async def unhandled_error(request: Request, _exc: Exception) -> JSONResponse:
-        return _error_response(
+        request_id = request_id_for(request)
+        response = _error_response(
             500,
             HTTPStatus.INTERNAL_SERVER_ERROR.phrase,
-            request_id_for(request),
+            request_id,
         )
+        record_response(request, response, request_id)
+        return response
