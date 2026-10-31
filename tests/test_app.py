@@ -33,6 +33,12 @@ def test_health(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_root_is_not_hello(client: TestClient) -> None:
+    response = client.get("/")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+
+
 def test_ready_with_no_checks(client: TestClient) -> None:
     response = client.get("/ready", headers={"X-Request-ID": "ready-1"})
     assert response.status_code == 200
@@ -89,7 +95,7 @@ def test_readiness_checks_stay_on_their_app() -> None:
 
 
 def test_request_id_on_success(client: TestClient) -> None:
-    response = client.get("/", headers={"X-Request-ID": "success-1"})
+    response = client.get("/v1", headers={"X-Request-ID": "success-1"})
     assert response.status_code == 200
     assert response.json() == {"message": "hello"}
     assert response.headers["x-request-id"] == "success-1"
