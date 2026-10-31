@@ -18,5 +18,5 @@ dev = [
     "httpx",
 ]
 
-[tool.setuptools]
-py-modules = ["meadowlark"]
+[tool.setuptools.packages.find]
+include = ["meadowlark*"]
