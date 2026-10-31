@@ -14,6 +14,15 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
+class EchoBody(BaseModel):
+    name: str
+
+
+@router.post("/echo")
+def echo(body: EchoBody) -> EchoBody:
+    return body
+
+
 @router.get("/")
 def read_root() -> HelloResponse:
     return HelloResponse(message="hello")
