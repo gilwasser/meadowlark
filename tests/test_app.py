@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -21,3 +23,11 @@ def test_missing_path(client: TestClient) -> None:
     assert response.json() == {
         "error": {"code": "not_found", "message": "Not Found"}
     }
+
+
+def test_settings_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MEADOWLARK_APP_NAME", "copied-app")
+    monkeypatch.setenv("MEADOWLARK_LOG_LEVEL", "warning")
+    application = create_app()
+    assert application.title == "copied-app"
+    assert logging.getLogger("meadowlark").level == logging.WARNING

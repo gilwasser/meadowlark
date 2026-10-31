@@ -24,4 +24,6 @@ pytest
 
 ## Environment
 
-`Settings` reads environment variables that start with `MEADOWLARK_`. No variables are defined.
+`Settings` reads environment variables that start with `MEADOWLARK_`. Copy `.env.example` to `.env` to set them.
+
+`MEADOWLARK_APP_NAME` sets the API title. The default is `meadowlark`. `MEADOWLARK_LOG_LEVEL` sets the level of the `meadowlark` logger. The default is `INFO`. Accepted levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`.
