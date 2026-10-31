@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 import uuid
 
 from fastapi import FastAPI, Request
@@ -8,6 +9,10 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+def _perf_counter() -> float:
+    return time.perf_counter()
 
 
 def _resolve_request_id(header_value: str | None) -> str:
@@ -39,6 +44,7 @@ def _request_log_line(
     path: str,
     status: int,
     request_id: str,
+    duration_ms: float,
     log_format: str,
 ) -> str:
     fields = {
@@ -46,25 +52,30 @@ def _request_log_line(
         "path": path,
         "status": status,
         "request_id": request_id,
+        "duration_ms": duration_ms,
     }
     if log_format == "json":
         return json.dumps(fields)
-    return "method=%s path=%s status=%s request_id=%s" % (
+    return "method=%s path=%s status=%s request_id=%s duration_ms=%s" % (
         method,
         path,
         status,
         request_id,
+        duration_ms,
     )
 
 
 def record_response(request: Request, response: Response, request_id: str) -> None:
     response.headers["X-Request-ID"] = request_id
+    started = request.state.started_at
+    duration_ms = round((_perf_counter() - started) * 1000, 3)
     request.app.state.request_logger.info(
         _request_log_line(
             request.method,
             request.url.path,
             response.status_code,
             request_id,
+            duration_ms,
             request.app.state.log_format,
         )
     )
@@ -82,6 +93,7 @@ def install_request_middleware(
     ) -> Response:
         request_id = _resolve_request_id(request.headers.get("x-request-id"))
         request.state.request_id = request_id
+        request.state.started_at = _perf_counter()
         response = await call_next(request)
         record_response(request, response, request_id)
         return response

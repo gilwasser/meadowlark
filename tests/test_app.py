@@ -147,14 +147,30 @@ def test_generated_request_id(client: TestClient) -> None:
     assert second.json()["error"]["request_id"] == second_id
 
 
-def test_request_log(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+def _pin_perf_counter(monkeypatch: pytest.MonkeyPatch, start: float, end: float) -> None:
+    samples = iter((start, end))
+    monkeypatch.setattr("meadowlark.request._perf_counter", lambda: next(samples))
+
+
+def test_request_log(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _pin_perf_counter(monkeypatch, 2.0, 2.25)
     caplog.set_level(logging.INFO, logger="meadowlark")
     response = client.get("/health", headers={"X-Request-ID": "log-1"})
     assert response.status_code == 200
-    assert "method=GET path=/health status=200 request_id=log-1" in caplog.messages
+    assert (
+        "method=GET path=/health status=200 request_id=log-1 duration_ms=250.0"
+        in caplog.messages
+    )
 
 
-def test_request_log_text(caplog: pytest.LogCaptureFixture) -> None:
+def test_request_log_text(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pin_perf_counter(monkeypatch, 2.0, 2.25)
     application = create_app(Settings(log_format="text"))
     caplog.set_level(logging.INFO, logger="meadowlark")
     response = TestClient(application).get(
@@ -162,11 +178,15 @@ def test_request_log_text(caplog: pytest.LogCaptureFixture) -> None:
     )
     assert response.status_code == 200
     assert (
-        "method=GET path=/health status=200 request_id=text-1" in caplog.messages
+        "method=GET path=/health status=200 request_id=text-1 duration_ms=250.0"
+        in caplog.messages
     )
 
 
-def test_request_log_json(caplog: pytest.LogCaptureFixture) -> None:
+def test_request_log_json(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pin_perf_counter(monkeypatch, 2.0, 2.25)
     application = create_app(Settings(log_format="json"))
     caplog.set_level(logging.INFO, logger="meadowlark")
     response = TestClient(application).get(
@@ -180,8 +200,9 @@ def test_request_log_json(caplog: pytest.LogCaptureFixture) -> None:
         "path": "/health",
         "status": 200,
         "request_id": "json-1",
+        "duration_ms": 250.0,
     }
-    assert list(payload) == ["method", "path", "status", "request_id"]
+    assert list(payload) == ["method", "path", "status", "request_id", "duration_ms"]
 
 
 def test_log_format_from_env(
@@ -257,6 +278,7 @@ def test_default_router_has_no_echo(client: TestClient) -> None:
 
 def test_unhandled_error_keeps_error_document(
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     application = create_app(Settings())
 
@@ -264,6 +286,7 @@ def test_unhandled_error_keeps_error_document(
     def boom() -> None:
         raise RuntimeError("secret")
 
+    _pin_perf_counter(monkeypatch, 2.0, 2.25)
     caplog.set_level(logging.INFO, logger="meadowlark")
     client = TestClient(application, raise_server_exceptions=False)
     response = client.get("/boom", headers={"X-Request-ID": "boom-1"})
@@ -279,16 +302,21 @@ def test_unhandled_error_keeps_error_document(
     assert response.headers["x-request-id"] == body["error"]["request_id"]
     assert "secret" not in response.text
     access = [message for message in caplog.messages if message.startswith("method=")]
-    assert access == ["method=GET path=/boom status=500 request_id=boom-1"]
+    assert access == [
+        "method=GET path=/boom status=500 request_id=boom-1 duration_ms=250.0"
+    ]
 
 
-def test_unhandled_error_log_json(caplog: pytest.LogCaptureFixture) -> None:
+def test_unhandled_error_log_json(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     application = create_app(Settings(log_format="json"))
 
     @application.get("/boom")
     def boom() -> None:
         raise RuntimeError("secret")
 
+    _pin_perf_counter(monkeypatch, 2.0, 2.25)
     caplog.set_level(logging.INFO, logger="meadowlark")
     client = TestClient(application, raise_server_exceptions=False)
     response = client.get("/boom", headers={"X-Request-ID": "boom-json-1"})
@@ -301,6 +329,7 @@ def test_unhandled_error_log_json(caplog: pytest.LogCaptureFixture) -> None:
         "path": "/boom",
         "status": 500,
         "request_id": "boom-json-1",
+        "duration_ms": 250.0,
     }
 
 
