@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from inspect import isawaitable
 from typing import Literal
@@ -59,7 +59,7 @@ def create_app(
     shutdown_hooks = list(on_shutdown)
 
     @asynccontextmanager
-    async def lifespan(_application: FastAPI):
+    async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
         index = 0
         while index < len(startup_hooks):
             hook = startup_hooks[index]
@@ -74,12 +74,11 @@ def create_app(
 
     application = FastAPI(title=settings.app_name, lifespan=lifespan)
     application.state.settings = settings
-    application.state.readiness_checks: list[ReadinessCheck] = []
+    readiness_checks: list[ReadinessCheck] = []
+    application.state.readiness_checks = readiness_checks
     application.state.startup_hooks = startup_hooks
     application.state.shutdown_hooks = shutdown_hooks
-    install_request_middleware(
-        application, settings.log_level, settings.log_format
-    )
+    install_request_middleware(application, settings.log_level, settings.log_format)
     install_error_handlers(application)
     application.include_router(router)
     return application
