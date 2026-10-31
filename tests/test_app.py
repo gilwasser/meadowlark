@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytest
@@ -126,6 +127,51 @@ def test_request_log(client: TestClient, caplog: pytest.LogCaptureFixture) -> No
     response = client.get("/health", headers={"X-Request-ID": "log-1"})
     assert response.status_code == 200
     assert "method=GET path=/health status=200 request_id=log-1" in caplog.messages
+
+
+def test_request_log_text(caplog: pytest.LogCaptureFixture) -> None:
+    application = create_app(Settings(log_format="text"))
+    caplog.set_level(logging.INFO, logger="meadowlark")
+    response = TestClient(application).get(
+        "/health", headers={"X-Request-ID": "text-1"}
+    )
+    assert response.status_code == 200
+    assert (
+        "method=GET path=/health status=200 request_id=text-1" in caplog.messages
+    )
+
+
+def test_request_log_json(caplog: pytest.LogCaptureFixture) -> None:
+    application = create_app(Settings(log_format="json"))
+    caplog.set_level(logging.INFO, logger="meadowlark")
+    response = TestClient(application).get(
+        "/health", headers={"X-Request-ID": "json-1"}
+    )
+    assert response.status_code == 200
+    line = next(message for message in caplog.messages if "json-1" in message)
+    payload = json.loads(line)
+    assert payload == {
+        "method": "GET",
+        "path": "/health",
+        "status": 200,
+        "request_id": "json-1",
+    }
+    assert list(payload) == ["method", "path", "status", "request_id"]
+
+
+def test_log_format_from_env(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("MEADOWLARK_LOG_FORMAT", "JSON")
+    application = create_app()
+    assert application.state.settings.log_format == "json"
+    caplog.set_level(logging.INFO, logger="meadowlark")
+    response = TestClient(application).get(
+        "/health", headers={"X-Request-ID": "env-json-1"}
+    )
+    assert response.status_code == 200
+    line = next(message for message in caplog.messages if "env-json-1" in message)
+    assert json.loads(line)["request_id"] == "env-json-1"
 
 
 def test_invalid_body_uses_error_document() -> None:

@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import uuid
@@ -31,7 +32,32 @@ def _request_logger(level: str) -> logging.Logger:
     return request_logger
 
 
-def install_request_middleware(application: FastAPI, log_level: str) -> None:
+def _request_log_line(
+    method: str,
+    path: str,
+    status: int,
+    request_id: str,
+    log_format: str,
+) -> str:
+    fields = {
+        "method": method,
+        "path": path,
+        "status": status,
+        "request_id": request_id,
+    }
+    if log_format == "json":
+        return json.dumps(fields)
+    return "method=%s path=%s status=%s request_id=%s" % (
+        method,
+        path,
+        status,
+        request_id,
+    )
+
+
+def install_request_middleware(
+    application: FastAPI, log_level: str, log_format: str = "text"
+) -> None:
     request_logger = _request_logger(log_level)
 
     @application.middleware("http")
@@ -41,10 +67,12 @@ def install_request_middleware(application: FastAPI, log_level: str) -> None:
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         request_logger.info(
-            "method=%s path=%s status=%s request_id=%s",
-            request.method,
-            request.url.path,
-            response.status_code,
-            request_id,
+            _request_log_line(
+                request.method,
+                request.url.path,
+                response.status_code,
+                request_id,
+                log_format,
+            )
         )
         return response
