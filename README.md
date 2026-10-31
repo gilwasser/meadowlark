@@ -14,7 +14,11 @@ pip install -e ".[dev]"
 uvicorn meadowlark:create_app --factory --port 8000
 ```
 
-`GET /` returns `{"message":"hello"}`. `GET /health` returns `{"status":"ok"}`. A missing path returns status 404 and `{"error":{"code":"not_found","message":"Not Found"}}`.
+`GET /` returns `{"message":"hello"}`. `GET /health` returns `{"status":"ok"}`. A missing path returns status 404 and `{"error":{"code":"not_found","message":"Not Found","request_id":"<id>"}}`.
+
+Send `X-Request-ID` to choose the id. If you omit the header, or the value contains a character other than letters, digits, `.`, `_`, or `-`, the app generates an id. The same id comes back on the response header and on `error.request_id`.
+
+Each request writes one log line on the `meadowlark` logger. The line names `method`, `path`, `status`, and `request_id`.
 
 ## Test
 
