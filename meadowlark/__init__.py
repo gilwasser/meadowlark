@@ -4,7 +4,7 @@ from inspect import isawaitable
 from typing import Literal
 
 from fastapi import FastAPI
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from meadowlark.errors import install_error_handlers
@@ -21,10 +21,17 @@ class Settings(BaseSettings):
         env_file=".env",
         extra="ignore",
         frozen=True,
+        populate_by_name=True,
     )
     app_name: str = "meadowlark"
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
-    log_format: Literal["text", "json"] = "text"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO",
+        validation_alias="MEADOWLARK_LOG_LEVEL",
+    )
+    log_format: Literal["text", "json"] = Field(
+        default="text",
+        validation_alias="MEADOWLARK_LOG_FORMAT",
+    )
 
     @field_validator("log_level", mode="before")
     @classmethod

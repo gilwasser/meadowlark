@@ -3,7 +3,7 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from meadowlark import Hook, Settings, create_app
 from meadowlark.ready import register_readiness_check
@@ -197,6 +197,24 @@ def test_log_format_from_env(
     assert response.status_code == 200
     line = next(message for message in caplog.messages if "env-json-1" in message)
     assert json.loads(line)["request_id"] == "env-json-1"
+
+
+def test_invalid_log_level_names_the_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MEADOWLARK_LOG_LEVEL", "nope")
+    with pytest.raises(ValidationError) as raised:
+        create_app()
+    message = str(raised.value)
+    assert "MEADOWLARK_LOG_LEVEL" in message
+    assert "DEBUG" in message
+
+
+def test_invalid_log_format_names_the_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MEADOWLARK_LOG_FORMAT", "xml")
+    with pytest.raises(ValidationError) as raised:
+        create_app()
+    message = str(raised.value)
+    assert "MEADOWLARK_LOG_FORMAT" in message
+    assert "json" in message
 
 
 def test_invalid_body_uses_error_document() -> None:
