@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import Literal
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -7,17 +6,11 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from meadowlark.routes import router
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MEADOWLARK_", frozen=True)
-
-
-class HelloResponse(BaseModel):
-    message: str
-
-
-class HealthResponse(BaseModel):
-    status: Literal["ok"]
 
 
 class ErrorDetail(BaseModel):
@@ -53,12 +46,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def unhandled_error(_request: Request, _exc: Exception) -> JSONResponse:
         return _error_response(500, HTTPStatus.INTERNAL_SERVER_ERROR.phrase)
 
-    @application.get("/")
-    def read_root() -> HelloResponse:
-        return HelloResponse(message="hello")
-
-    @application.get("/health")
-    def read_health() -> HealthResponse:
-        return HealthResponse(status="ok")
-
+    application.include_router(router)
     return application
