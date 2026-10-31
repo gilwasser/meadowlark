@@ -26,6 +26,17 @@ Each finished request writes one log line. The line names `method`, `path`, `sta
 
 `register_readiness_check` adds a startup callback. That callback records the check when the app starts, after the callbacks in `on_startup`. `GET /ready` uses the recorded checks.
 
+## Docker
+
+Build the image and start a container. The process listens on port 8000 and runs as the user `meadowlark`.
+
+```bash
+docker build --tag meadowlark .
+docker run --rm --publish 8000:8000 meadowlark
+```
+
+The image command is `uvicorn meadowlark:create_app --factory --host 0.0.0.0 --port 8000`. `--host 0.0.0.0` lets the published port accept connections. The health check calls `GET /ready` on port 8000 inside the container. A ready app returns status 200 and `{"status":"ready"}`.
+
 ## Test
 
 ```bash
