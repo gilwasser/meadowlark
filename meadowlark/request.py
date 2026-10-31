@@ -4,6 +4,7 @@ import re
 import uuid
 
 from fastapi import FastAPI, Request
+from starlette.responses import Response
 
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
@@ -55,24 +56,29 @@ def _request_log_line(
     )
 
 
+def record_response(request: Request, response: Response, request_id: str) -> None:
+    response.headers["X-Request-ID"] = request_id
+    request.app.state.request_logger.info(
+        _request_log_line(
+            request.method,
+            request.url.path,
+            response.status_code,
+            request_id,
+            request.app.state.log_format,
+        )
+    )
+
+
 def install_request_middleware(
     application: FastAPI, log_level: str, log_format: str = "text"
 ) -> None:
-    request_logger = _request_logger(log_level)
+    application.state.request_logger = _request_logger(log_level)
+    application.state.log_format = log_format
 
     @application.middleware("http")
     async def add_request_id(request: Request, call_next):
         request_id = _resolve_request_id(request.headers.get("x-request-id"))
         request.state.request_id = request_id
         response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        request_logger.info(
-            _request_log_line(
-                request.method,
-                request.url.path,
-                response.status_code,
-                request_id,
-                log_format,
-            )
-        )
+        record_response(request, response, request_id)
         return response
