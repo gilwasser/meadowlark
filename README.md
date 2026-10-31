@@ -32,6 +32,12 @@ Each finished request writes one log line. The line names `method`, `path`, `sta
 pytest
 ```
 
+pytest compares the OpenAPI document for the default app with `tests/openapi.json` and fails on any difference. `MEADOWLARK_*` and `.env` do not change that document. A FastAPI upgrade can change `tests/openapi.json` even when the routes stay the same. To regenerate `tests/openapi.json`, run this command from the repository root.
+
+```bash
+python tests/test_openapi.py
+```
+
 ## Environment
 
 `Settings` reads environment variables that start with `MEADOWLARK_`. Copy `.env.example` to `.env` to set them.
