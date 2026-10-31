@@ -28,6 +28,12 @@ A missing path returns status 404 and the error document below.
 
 Run `pytest`. CI installs with `pip install -e ".[dev]"` and then runs `python -m pytest`. Tests live in `tests/test_app.py` and use `TestClient`.
 
+`tests/test_openapi.py` compares the OpenAPI document for the default app with `tests/openapi.json` and fails on any difference. To regenerate `tests/openapi.json`, run this command from the repository root.
+
+```bash
+python tests/test_openapi.py
+```
+
 ## Lint
 
 Ruff and mypy are coming. Neither is in `pyproject.toml` or in CI. Do not run them as commands that work today.

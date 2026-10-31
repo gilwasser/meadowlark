@@ -27,6 +27,20 @@
         ],
         "title": "HelloResponse",
         "type": "object"
+      },
+      "ReadyResponse": {
+        "properties": {
+          "status": {
+            "const": "ready",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReadyResponse",
+        "type": "object"
       }
     }
   },
@@ -36,24 +50,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/": {
-      "get": {
-        "operationId": "read_root__get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HelloResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Read Root"
-      }
-    },
     "/health": {
       "get": {
         "operationId": "read_health_health_get",
@@ -70,6 +66,42 @@
           }
         },
         "summary": "Read Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "read_ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Ready"
+      }
+    },
+    "/v1": {
+      "get": {
+        "operationId": "read_root_v1_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelloResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Root"
       }
     }
   }

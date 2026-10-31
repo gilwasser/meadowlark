@@ -46,6 +46,7 @@ def test_openapi_matches_snapshot() -> None:
 def test_openapi_ignores_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MEADOWLARK_APP_NAME", "renamed")
     monkeypatch.setenv("MEADOWLARK_LOG_LEVEL", "ERROR")
+    monkeypatch.setenv("MEADOWLARK_LOG_FORMAT", "json")
     assert _live_text() == SNAPSHOT.read_text(encoding="utf-8")
 
 
