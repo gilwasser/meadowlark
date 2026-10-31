@@ -49,6 +49,19 @@ pytest compares the OpenAPI document for the default app with `tests/openapi.jso
 python tests/test_openapi.py
 ```
 
+## Pre-commit
+
+The hooks run ruff, mypy, and the OpenAPI snapshot test with the tools from the dev extra. Create `.venv` as in Install, then install `pre-commit` and the git hook.
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+`pre-commit run --all-files` runs the hooks on the whole tree. The hooks call `.venv/bin/python`, so a git commit finds those tools without activating the virtualenv.
+
+`ruff format --check` fails when a file needs formatting. `ruff format` rewrites those files. The OpenAPI hook runs `pytest` on `tests/test_openapi.py` with `addopts` cleared. `addopts` is `--cov`, and that option would treat the test path as a coverage path. `pytest` on the full suite still enforces the coverage gate.
+
 ## Environment
 
 `Settings` reads environment variables that start with `MEADOWLARK_`. Copy `.env.example` to `.env` to set them.

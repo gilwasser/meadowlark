@@ -1,0 +1,27 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff lint
+        entry: .venv/bin/python -m ruff check
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format
+        entry: .venv/bin/python -m ruff format --check
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/python -m mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: openapi-snapshot
+        name: OpenAPI snapshot
+        entry: .venv/bin/python -m pytest -o addopts= tests/test_openapi.py
+        language: system
+        pass_filenames: false
+        always_run: true
